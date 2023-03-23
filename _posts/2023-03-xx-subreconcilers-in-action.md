@@ -207,17 +207,17 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 ```
 
 > Note that because we don't pass the the Memcached resource to
-  subreconcilers, the main reconcile function doesn't have the latest version
-  of our resource. This will lead to issues as the rest of the Reconcile()
-  function works on an outdated version of the Memacached resource, and
-  the Kubernetes API will reject attempts to modify the resource. We can
-  solve this issue in two ways:
-  - Force a requeue after modifying the resource in the subreconciler.
-  - Ensure that we work on the latest version of the resource in the main
-    reconciler by fetching it again after having called the subreconciler
-  
-  We are going with the second option for now. We'll see how that becomes
-  obsolete after the next step.
+> subreconcilers, the main reconcile function doesn't have the latest version
+> of our resource. This will lead to issues as the rest of the Reconcile()
+> function works on an outdated version of the Memacached resource, and
+> the Kubernetes API will reject attempts to modify the resource. We can
+> solve this issue in two ways:
+> - Force a requeue after modifying the resource in the subreconciler.
+> - Ensure that we work on the latest version of the resource in the main
+>   reconciler by fetching it again after having called the subreconciler
+> 
+> We are going with the second option for now. We'll see how that becomes
+> obsolete after the next step.
 
 # Step 3: Creating other subreconcilers
 
