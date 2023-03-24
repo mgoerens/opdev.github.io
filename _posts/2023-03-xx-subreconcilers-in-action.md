@@ -72,8 +72,8 @@ We create an empty subreconciler that follows the function type
 `subreconciler.FnWithRequest`:
 
 ```go
-// setStatusToUnkown is a function of type subreconciler.FnWithRequest
-func (r *MemcachedReconciler) setStatusToUnkown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+// setStatusToUnknown is a function of type subreconciler.FnWithRequest
+func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
   return subreconciler.ContinueReconciling()
 }
 ```
@@ -88,8 +88,8 @@ TODO: explanation on `return subreconciler.ContinueReconciling()`
 Our subreconcilers becomes:
 
 ```go
-// setStatusToUnkown is a function of type subreconciler.FnWithRequest
-func (r *MemcachedReconciler) setStatusToUnkown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+// setStatusToUnknown is a function of type subreconciler.FnWithRequest
+func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
   log := log.FromContext(ctx)
   memcached := &cachev1alpha1.Memcached{}
 
@@ -114,8 +114,8 @@ TODO: explanation on `return subreconciler.RequeueWithError(err)`
 We are now only missing the actual reconciliation logic: setting the Status to "Unknown".
 
 ```go
-// setStatusToUnkown is a function of type subreconciler.FnWithRequest
-func (r *MemcachedReconciler) setStatusToUnkown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+// setStatusToUnknown is a function of type subreconciler.FnWithRequest
+func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
   log := log.FromContext(ctx)
   memcached := &cachev1alpha1.Memcached{}
 
@@ -156,8 +156,8 @@ First we have to call the subreconciler:
 func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
   [...]
 
-  // Run the setStatusToUnkown subreconciler
-  result, err := r.setStatusToUnkown(ctx, req)
+  // Run the setStatusToUnknown subreconciler
+  result, err := r.setStatusToUnknown(ctx, req)
 
   [...]
 ```
@@ -180,8 +180,8 @@ when returning from within the top-level Reconciler.`
 func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
   [...]
 
-  // Run the setStatusToUnkown subreconciler
-  result, err := r.setStatusToUnkown(ctx, req)
+  // Run the setStatusToUnknown subreconciler
+  result, err := r.setStatusToUnknown(ctx, req)
 
   // Stop the reconciliation if needed.
   if subreconciler.ShouldHaltOrRequeue(result, err) {
@@ -197,8 +197,8 @@ This can also be written:
 func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
   [...]
 
-  // Run the setStatusToUnkown subreconciler
-  if r, err := r.setStatusToUnkown(ctx, req); subreconciler.ShouldHaltOrRequeue(r, err) {
+  // Run the setStatusToUnknown subreconciler
+  if r, err := r.setStatusToUnknown(ctx, req); subreconciler.ShouldHaltOrRequeue(r, err) {
     return subreconciler.Evaluate(r, err)
   }
 
@@ -250,7 +250,7 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
   // The list of subreconcilers for Memached
   subreconcilersForMemcached := []subreconciler.FnWithRequest{
-    r.setStatusToUnkown,
+    r.setStatusToUnknown,
     r.addFinalizer,
     r.handleDelete,
     r.reconcileDeployment,
@@ -311,7 +311,7 @@ func (r *MemcachedReconciler) getLatestMemached(ctx context.Context, req ctrl.Re
 And call this function in our subreconcilers as follow:
 
 ```go
-func (r *MemcachedReconciler) setStatusToUnkown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
+func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.Request) (*ctrl.Result, error) {
   [...]
 
   memcached := &cachev1alpha1.Memcached{}
