@@ -5,56 +5,68 @@ description:
 categories:
 ---
 
-The subreconciler library is a useful addition to a Go Operator project. It
-allows developer to improve code readability by structuring the
-reconciliation logic into "subreconcilers". Each subreconciler is a function
-that handles a specific task.
+The [subreconciler](https://github.com/opdev/subreconciler) library is a
+useful addition to a Go operator project. It allows developers to improve
+code readability by structuring the reconciliation logic
+into "subreconcilers". Each subreconciler is a independent function that
+handles a specific task.
 
-In this blog post we'll take a look at a how developers can add the
-subreconciler library to their operator project and how to use it.
+In this blog post, we'll take a look at a concrete example how developers can
+add the subreconciler library to their operator project and how to make the
+most out of it.
 
 # Memached-operator
 
-Implementing the memcached-operator is commonly used as a learning exercise.
-It's actually the tutorial of operator-sdk. We'll take a look at the code and
-see how we can transition to subreconcilers to improve structure and code
-readability.
+Implementing the memcached-operator is a common learning exercise when getting
+started with Go operators. This is in fact the tutorial of operator-sdk.
+We'll first take a look at the code and see how we can transition to
+subreconcilers to improve structure and code readability of the
+memached-operator.
+
+To follow along, each step of this process is implemented as a separate commit
+in
+[this repository](https://github.com/opdev/memached-operator-with-subreconcilers/compare/master...subreconcilers-fn-with-request).
 
 # The world before subreconcilers
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/4d6dbacf9f9a19c69483efda5d9e104f62788bde#diff-3916240eee6c6200b6e636fa91c37027cc5a70fe7b8d111369ce6f29f9387e03
+[Here](https://github.com/opdev/memached-operator-with-subreconcilers/blob/4d6dbacf9f9a19c69483efda5d9e104f62788bde/controllers/memcached_controller.go)
+is the starting state of the memcached-operator.
 
-We have a main Reconcile function which is over 200 lines long. It's composed
-of a few distinct tasks like adding a finalizer, updating the CR status and
+The main Reconcile function is over 200 lines long. It's composed of a few
+distinct tasks like adding a finalizer, updating the CR status and
 reconciling a Deployment child resource.
 
 It's of course completely fine to keep it as it is, but as the project grows,
 this function will grow bigger and bigger and it will get more and more
-difficult to keep thinks tidy.
+difficult to keep thinks tidy. In particular, while each task is independent,
+they all are implemented in the same function.
+
+So let's break the main reconciler into subreconcilers.
 
 # Step 1: defining how to split the code
-
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/093584533508f95b61ec85849c44837167a78bdb
 
 We identified 5 distinct tasks that are performed by the main reconcile
 function:
 * The controller first sets the status of the resource to "Unknown".
 * Then it adds a finalizer to the Memcached resource.
 * The controller then checks if the resource is marked to be deleted and
-  performs cleanups action before removing the finalizer.
+  performs cleanup actions before removing the finalizer.
 * A child resource is reconciled next. If it doesn't already exist, the
   controller creates a Deployment for Memcached. Otherwise, it checks that
   the Deployment is correctly configured.
-* Finally the controller update the resource status with information on the
+* Finally the controller updates the resource status with information on the
   Memcached deployment.
 
-We will create a subreconciler for each of these steps
+[Here](https://github.com/opdev/memached-operator-with-subreconcilers/commit/093584533508f95b61ec85849c44837167a78bdb)
+is how we aim at splitting the code.
+
+We will create a subreconciler for each of these steps.
 
 # Step 2: creating our first subreconciler
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/769fe39b8a4d68ff60b10c094049d905d6b2a4a1
-
-Let's start with our first subreconciler, `setStatusToUnknown`.
+[This commit](https://github.com/opdev/memached-operator-with-subreconcilers/commit/769fe39b8a4d68ff60b10c094049d905d6b2a4a1)
+demonstrates the full implementation of our first subreconciler,
+`setStatusToUnknown`.
 
 This is the actual task that we want to offload to a dedicated subreconciler:
 
@@ -68,8 +80,17 @@ This is the actual task that we want to offload to a dedicated subreconciler:
     }
 ```
 
-We create an empty subreconciler that follows the function type
-`subreconciler.FnWithRequest`:
+First we create an empty subreconciler that follows the function type
+`subreconciler.FnWithRequest`.
+
+The subreconciler library comes with a set of "flow control functions", which
+indicates to the main reconciler (i.e. the Reconcile() function) whether
+reconciliation should continue, halt, throw an error, requeue, etc.
+
+> It is necessary to add a
+> `return subreconciler.ContinueReconciling()` statement at the end of each
+> subreconciler to notify the main reconciler to continue the reconciliation
+> logic.
 
 ```go
 // setStatusToUnknown is a function of type subreconciler.FnWithRequest
@@ -78,14 +99,13 @@ func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.R
 }
 ```
 
-TODO: explanation on `return subreconciler.ContinueReconciling()`
+The Memached resource is **not** passed from the main reconciler to the
+subreconciler. This is a design decision as it is considered best practice to
+treat subreconcilers as independent "reconcilers". It is therefore necessary
+to fetch the latest version of the Memcached resource at the beginning of our
+(sub)reconciliation.
 
-> Note that the Memached resource is **not** passed to the subreconciler. This
-  is a design decision: subreconciler should be treated as independent
-  "reconcilers". It is therefore necessary to fetch the latest version of the
-   Memcached resource at the beginning of our (sub)reconciliation.
-
-Our subreconcilers becomes:
+Our subreconciler becomes:
 
 ```go
 // setStatusToUnknown is a function of type subreconciler.FnWithRequest
@@ -109,9 +129,18 @@ func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.R
   return subreconciler.ContinueReconciling()
 ```
 
-TODO: explanation on `return subreconciler.RequeueWithError(err)`
+> Here we see two new flow control functions:
+> - `return subreconciler.DoNotRequeue()` indicates to the main reconciler
+>   that the reconciliation should stop, and that the request should not be
+>   requeued. It essentially replaces a `return ctrl.Result{}, nil` in the
+>   main reconciler.
+> - `return subreconciler.RequeueWithError(err)` indicates to the main
+>   reconciler that an error occured and should be logged, and to requeue the
+>   request. It essentially replaces a `return ctrl.Result{}, err` in the
+>   main reconciler.
 
-We are now only missing the actual reconciliation logic: setting the Status to "Unknown".
+We are now only missing the actual reconciliation logic: setting the Status
+to "Unknown".
 
 ```go
 // setStatusToUnknown is a function of type subreconciler.FnWithRequest
@@ -214,7 +243,7 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 > solve this issue in two ways:
 > - Force a requeue after modifying the resource in the subreconciler.
 > - Ensure that we work on the latest version of the resource in the main
->   reconciler by fetching it again after having called the subreconciler
+>   reconciler by fetching it again after having called the subreconciler.
 > 
 > We are going with the second option for now. We'll see how that becomes
 > obsolete after the next step.
@@ -228,13 +257,21 @@ function that we previously identified. We create 4 new subreconcilers:
 - `reconcileDeployment`
 - `updateStatus`
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/b20e4fe18972d3a7004a45cac31d472ab4166a66
+[Here is the implementation of this step]
+(https://github.com/opdev/memached-operator-with-subreconcilers/commit/b20e4fe18972d3a7004a45cac31d472ab4166a66)
 
-Note:
-- TODO explain subreconciler.Requeue() in several places
-- TODO explain subreconciler.RequeueWithDelay(time.Minute) in `reconcileDeployment`
-- TODO No need for getting the latest Memcached instance after a subreconciler
-  anymore as this is done at the beginning of each subreconciler.
+> Again, two new flow control functions are introduced in this step:
+> - `return subreconciler.Requeue()` forces a requeue not caused by an error.
+>   This is the equivalent of `return ctrl.Result{Requeue: true}, nil` in the
+>   main reconciler.
+> - `return subreconciler.RequeueWithDelay(time.Minute)` requeues the request
+>   after a delay. It replaces a
+>   `return ctrl.Result {RequeueAfter: time.Minute}, nil` statement.
+
+Note that each subreconciler starts with the same logic: fetching the latest
+version of the Memcached instance. It is therefore not necessary to requeue
+each time a subreconciler update this object, as it is guaranteed that those
+changes are will be picked up by other subreconcilers.
 
 # Step 4: Some refactoring
 
@@ -268,9 +305,11 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 ```
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/1fa1894eef5f5acfc5786faef524fe18290291ab
+See [this commit](
+https://github.com/opdev/memached-operator-with-subreconcilers/commit/1fa1894eef5f5acfc5786faef524fe18290291ab)
+for the implementation of this first improvement.
 
-Then we can use the subreconciler library in the `return` statement of
+Second, we can use the subreconciler library in the `return` statement of
 `Reconcile()` for consistency:
 
 ```go
@@ -281,7 +320,8 @@ func (r *MemcachedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 ```
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/45e45a6b9a28c24c7d21e710b3c4f0d4146869bc
+See how it is done in [this commit](
+https://github.com/opdev/memached-operator-with-subreconcilers/commit/45e45a6b9a28c24c7d21e710b3c4f0d4146869bc).
 
 Finally, we have noticed that each of our subreconciler starts with the same:
 getting the latest version of the Memcached instance. We can create a small
@@ -326,8 +366,6 @@ func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.R
 }
 ```
 
-https://github.com/opdev/memached-operator-with-subreconcilers/commit/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf
-
 In a traditional approach (without subreconcilers), the main reconciler first
 gets the latest version of Memcached. This acts as a validation that the CRD
 as been correctly installed and that the Memcached instance exists.
@@ -335,14 +373,22 @@ as been correctly installed and that the Memcached instance exists.
 This tasks is now redundant as this is effectively done at the start of each
 subreconciler.
 
+For an implementation of this improvement in the memcached operator, see
+[this commit]
+(https://github.com/opdev/memached-operator-with-subreconcilers/commit/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf).
+
 # Final result
 
-https://github.com/opdev/memached-operator-with-subreconcilers/blob/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf/controllers/memcached_controller.go
+[Here is how the reconciliation logic looks like]
+(https://github.com/opdev/memached-operator-with-subreconcilers/blob/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf/controllers/memcached_controller.go)
+now that we have introduced the subreconciler library into the memached
+operator project.
 
-Using the subreconciler library allows to improve the structure of our code.
-The Reconcile() function went from being over 200 lines long to less the 20.
-Each task is logically separated and can be developed independently from the
-other.
+We can see that the structure of our code has been significantly improved.
+Each task that is performed as part of the reconciliation of a Memcached
+instance is logically separated and can be developed independently from the
+other. The Reconcile() function went from being over 200 lines long to less
+the 20.
 
 As a tradeoff, we have to ensure, at the beginning of each subreconciler, that
 we are working with the latest version of the Memcached instance. This
