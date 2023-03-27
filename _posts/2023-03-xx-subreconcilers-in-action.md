@@ -257,8 +257,7 @@ function that we previously identified. We create 4 new subreconcilers:
 - `reconcileDeployment`
 - `updateStatus`
 
-[Here is the implementation of this step]
-(https://github.com/opdev/memached-operator-with-subreconcilers/commit/b20e4fe18972d3a7004a45cac31d472ab4166a66)
+[Here is the implementation of this step](https://github.com/opdev/memached-operator-with-subreconcilers/commit/b20e4fe18972d3a7004a45cac31d472ab4166a66)
 
 > Again, two new flow control functions are introduced in this step:
 > - `return subreconciler.Requeue()` forces a requeue not caused by an error.
@@ -374,13 +373,11 @@ This tasks is now redundant as this is effectively done at the start of each
 subreconciler.
 
 For an implementation of this improvement in the memcached operator, see
-[this commit]
-(https://github.com/opdev/memached-operator-with-subreconcilers/commit/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf).
+[this commit](https://github.com/opdev/memached-operator-with-subreconcilers/commit/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf).
 
 # Final result
 
-[Here is how the reconciliation logic looks like]
-(https://github.com/opdev/memached-operator-with-subreconcilers/blob/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf/controllers/memcached_controller.go)
+[Here is how the reconciliation logic looks like](https://github.com/opdev/memached-operator-with-subreconcilers/blob/b4ba2ea4e7376edb9d0e809bf4813b0fff1c89cf/controllers/memcached_controller.go)
 now that we have introduced the subreconciler library into the memached
 operator project.
 
