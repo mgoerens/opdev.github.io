@@ -38,7 +38,7 @@ reconciling a Deployment child resource.
 
 It's of course completely fine to keep it as it is, but as the project grows,
 this function will grow bigger and bigger and it will get more and more
-difficult to keep thinks tidy. In particular, while each task is independent,
+difficult to keep things tidy. In particular, while each task is independent,
 they all are implemented in the same function.
 
 So let's break the main reconciler into subreconcilers.
@@ -174,7 +174,7 @@ func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.R
 }
 ```
 
-And, *voila*, we created our first subreconciler !
+And, *voila*, we created our first subreconciler!
 
 Now, let's see how to call it from the main reconciliation loop. This is a two
 step process.
