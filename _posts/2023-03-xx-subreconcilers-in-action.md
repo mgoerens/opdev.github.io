@@ -99,7 +99,7 @@ func (r *MemcachedReconciler) setStatusToUnknown(ctx context.Context, req ctrl.R
 }
 ```
 
-The Memached resource is **not** passed from the main reconciler to the
+The `Memcached` resource is **not** passed from the main reconciler to the
 subreconciler. This is a design decision as it is considered best practice to
 treat subreconcilers as independent "reconcilers". It is therefore necessary
 to fetch the latest version of the Memcached resource at the beginning of our
